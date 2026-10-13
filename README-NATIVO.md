@@ -14,7 +14,7 @@ Los 16 MB aproximados de archivos de Linux son distintos de la RAM asignada a la
 
 Windows 10/11 x64 con CPU compatible con virtualización. Activa en Características de Windows la opción **Windows Hypervisor Platform**. Activa Intel VT-x o AMD-V en el firmware del equipo si está deshabilitado. Puede requerir permisos de administrador y reiniciar Windows. Estas características **no viajan en la USB**.
 
-En Windows Terminal o PowerShell, desde la carpeta extraída:
+En Windows Terminal o PowerShell, desde la carpeta extraída (puedes ejecutar además `scripts\probar-nativo-windows.ps1`, que realiza estas pruebas sin cambiar opciones de Windows):
 
 ```powershell
 .\nativevm.exe --help
@@ -25,6 +25,12 @@ En Windows Terminal o PowerShell, desde la carpeta extraída:
 ```
 
 `smoke` es la primera prueba de aceleración real: crea la partición WHPX, mapea 2 MiB, configura una CPU x86 protegida y ejecuta instrucciones `OUT` al UART COM1, terminando con `HLT`. **Debe pasar antes de probar el kernel**. Aquí, desde el entorno Linux del desarrollo, no es posible ejecutar WHPX; aún falta verificar esa prueba en un Windows físico.
+
+Puedes ejecutar las comprobaciones con un solo comando:
+
+```powershell
+powershell.exe -NoProfile -File .\scripts\probar-nativo-windows.ps1
+```
 
 ## Intentar cargar Alpine con el motor nativo
 

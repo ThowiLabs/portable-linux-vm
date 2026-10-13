@@ -9,7 +9,7 @@ nativevm.exe usa API WHPX; bootea bzImage+initramfs en RAM, CPU x86 modo protegi
 # Librerías usadas
 Win32, WHvPlatform (carga dinámica), C++20 stdlib, Alpine minirootfs, BusyBox, musl, kernel oficial Alpine.
 # Archivos importantes modificados
-src/native_main.cpp, native_core.hpp, native_whpx.hpp, native_uart.hpp; tests/test_native.cpp, tests/test_uart.cpp; scripts/preparar-initramfs.sh, scripts/compilar-nativo.sh, README-NATIVO.md.
+src/native_main.cpp, native_core.hpp, native_whpx.hpp, native_uart.hpp; tests/test_native.cpp, tests/test_uart.cpp; scripts/preparar-initramfs.sh, scripts/compilar-nativo.sh, scripts/probar-nativo-windows.ps1, README-NATIVO.md.
 # Problemas encontrados
 Entorno Linux no expone /dev/kvm ni WHPX: imposible validar directamente aceleración Windows. Linux puede hacer HLT como espera de IRQ, no como finalización; cambió el criterio. Alpine ISO original requiere modloop, por eso se hizo initramfs propio.
 # Soluciones implementadas
