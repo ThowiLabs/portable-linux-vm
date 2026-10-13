@@ -1,3 +1,9 @@
+## Novedad: PortableVM Native 0.2 sin QEMU
+
+Ahora existe un prototipo nativo **experimental** en C++20/WHPX que no incluye QEMU: consulta [README-NATIVE.md](README-NATIVE.md). El ejecutable `nativevm.exe` pesa alrededor de 1.1 MB y puede preparar perfiles de kernels/initramfs de Alpine. La ejecución completa de Linux, red, Docker, QCOW2 e ISO **NO está implementada** en el backend nativo y requiere más desarrollo y pruebas en un equipo Windows con WHPX habilitado.
+
+---
+
 # Portable Linux VM — C++20 para Windows x64
 
 Gestor de máquinas virtuales portable para USB. Administra múltiples discos QCOW2, arranca instaladores ISO y permite ejecutar distribuciones Linux reales sin instalar WSL ni Docker Desktop. **El monitor de máquinas virtuales de esta versión es QEMU; el gestor, su configuración y sus controles están escritos en C++20.**
