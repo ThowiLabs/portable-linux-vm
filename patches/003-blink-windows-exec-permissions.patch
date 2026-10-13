@@ -1,0 +1,65 @@
+--- a/blink/loader.c
++++ b/blink/loader.c
+@@ -28,6 +28,9 @@
+ #include <sys/stat.h>
+ #include <sys/types.h>
+ #include <unistd.h>
++#ifdef __COSMOPOLITAN__
++#include <libc/dce.h>
++#endif
+ 
+ #include "blink/assert.h"
+ #include "blink/biosrom.h"
+@@ -553,7 +556,14 @@
+     errno = EACCES;
+     return -1;
+   }
+-  if (!(st->st_mode & 0111) && !IsBinFile(prog)) {
++  // Win32 file modes do not preserve the Unix executable bit for ELF
++  // files unpacked from OCI layers. The subsequent ELF loader still
++  // checks file format and architecture. Keep Unix behavior unchanged.
++  if (!(st->st_mode & 0111) && !IsBinFile(prog)
++#ifdef __COSMOPOLITAN__
++      && !IsWindows()
++#endif
++      ) {
+     LOGF("execve needs chmod +x");
+     errno = EACCES;
+     return -1;
+@@ -707,6 +717,7 @@
+     // PortableBox diagnostics: failure stage instead of an ambiguous EIO.
+     const char *loadstage = "open";
+     bool loadok = false;
++    memset(&st, 0, sizeof(st));
+     fd = VfsOpen(AT_FDCWD, prog, O_RDONLY, 0);
+     if (fd != -1) {
+       loadstage = "fstat";
+@@ -730,8 +741,11 @@
+                                      mapsize - total, total);
+                 if (n <= 0) {
+                   if (!n) errno = EIO;
++                  const int readerrno = errno;
++                  Munmap(map, mapsize);
+                   map = MAP_FAILED;
+                   loadstage = "read-after-mmap";
++                  errno = readerrno;
+                   break;
+                 }
+                 total += n;
+@@ -747,11 +761,13 @@
+       }
+     }
+     if (!loadok) {
+-      fprintf(stderr, "PortableBox diagnostic: loader stage=%s errno=%d\n",
+-              loadstage, errno);
++      // Save errno before fprintf: Windows terminal output may overwrite it.
++      const int reason = errno;
++      fprintf(stderr, "PortableBox diagnostic: loader stage=%s errno=%d, mode=%o\n",
++              loadstage, reason, (unsigned)st.st_mode);
+       WriteErrorString(prog);
+       WriteErrorString(": failed to load executable (errno ");
+-      FormatInt64(tmp, errno);
++      FormatInt64(tmp, reason);
+       WriteErrorString(tmp);
+       WriteErrorString(")\n");
+       exit(127);
