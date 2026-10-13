@@ -6,6 +6,7 @@ version=3.24.2
 expected_alpine=c5ca053cfe1d85c5b96dff8b9bc57045f7f184a30ffb6b65776409ca90388677
 expected_blink=2c326c70e0f3dbe06c01609d11e5ad4c303f5f206b0127ff6deea8d8cd04aaed
 blink_src=${BLINK_EXE:-"$repo/dist/apt-diagnostico/blink.exe"}
+blink_license=${BLINK_LICENSE:-"$(dirname "$blink_src")/LICENSE-BLINK.txt"}
 out="$repo/dist/PortableBox-Alpine-${version}-Windows-x64.zip"
 work="$repo/build/alpine-pack"
 stage="$work/PortableBox"
@@ -29,8 +30,8 @@ x86_64-w64-mingw32-g++ -std=c++20 -Os -s -Wall -Wextra -municode \
   -static -static-libgcc -static-libstdc++ "$repo/src/portablebox_app.cpp" -o "$stage/portablebox.exe"
 cp "$blink_src" "$stage/blink.exe"
 cp "$repo/scripts/diagnostico-apt.ps1" "$stage/scripts/diagnostico-apt.ps1"
-[[ -f "$repo/dist/apt-diagnostico/LICENSE-BLINK.txt" ]] || { echo "Falta LICENSE-BLINK.txt" >&2; exit 1; }
-cp "$repo/dist/apt-diagnostico/LICENSE-BLINK.txt" "$stage/LICENSE-BLINK.txt"
+[[ -f "$blink_license" ]] || { echo "Falta LICENSE-BLINK.txt; define BLINK_LICENSE" >&2; exit 1; }
+cp "$blink_license" "$stage/LICENSE-BLINK.txt"
 cat > "$stage/LEEME.txt" <<'LEEME'
 PortableBox para Windows x64 con Alpine Linux 3.24.2 integrado.
 Extraer todo el ZIP y ejecutar desde PowerShell:
