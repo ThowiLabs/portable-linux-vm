@@ -1,0 +1,7 @@
+/dist/
+/build/
+/engine/
+/vms/
+*.exe
+*.qcow2
+*.iso
