@@ -55,3 +55,14 @@ Mantener HTTPS de forma predeterminada y validación de firmas. HTTP optativo re
 1. Probar `apk update` por HTTP temporalmente como se indica en la respuesta.
 2. Descargar paquete local actualizado de Kaggle con bash/vim/htop/curl y ejecutar diagnóstico PowerShell sin Alpine en ejecución.
 3. Comparar resultados y corregir la syscall o ruta concreta de red Windows; construir un nuevo blink.exe solo al contar con evidencia reproducible.
+
+
+# Entrega temporal para diagnóstico (2026-10-13)
+- Archivo creado localmente en Kaggle: `/kaggle/working/portable-linux-vm/dist/PortableBox-Alpine-3.24.2-Tools-Diagnostico-Windows-x64.7z`.
+- Tamaño: 19 652 536 bytes (~18.7 MiB), contenido extraído 314 704 752 bytes.
+- SHA-256: `c63e975dbb5af877913b3b3a5dd423dac65ccb63add42215803ef167c168422c`.
+- Contiene rootfs completo Alpine con bash, vim, htop, curl, motor Blink 1.0.9 original sin modificar, gestor Windows y `scripts/diagnostico-apk.ps1`.
+- Comprobación local: `7z t` informó `Everything is Ok`.
+- Comprobación de descarga externa por el túnel efímero de Kaggle: descarga de archivo y hash coinciden exactamente.
+- Distribución **no subida a GitHub**, allí solo se registró código fuente y documentación.
+- Reiteración: instalar previamente herramientas no demuestra que `apk update` funcione bajo Windows. Se necesita comparar HTTP/HTTPS con el diagnóstico antes de parchear la red.
