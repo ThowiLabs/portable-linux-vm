@@ -52,7 +52,7 @@ static int launch(const fs::path& tool,const std::vector<wstring>& args,const fs
     return int(code);
 }
 static void help(){
-    std::wcout << L"PortableBox 1.0 - Linux en modo usuario, sin Hyper-V, WSL ni QEMU\n"
+    std::wcout << L"PortableBox 1.0.1 - Linux en modo usuario, sin Hyper-V, WSL ni QEMU\n"
       L"Uso:\n"
       L"  portablebox.exe images\n"
       L"  portablebox.exe doctor\n"
@@ -100,7 +100,13 @@ int wmain(int argc,wchar_t** argv) {
                 if(executable.empty() || executable[0]!=L'/')
                     throw std::runtime_error("El ejecutable invitado debe ser ruta Linux absoluta.");
             }
-            std::vector<wstring> options={L"-C",fs::absolute(root).wstring(),executable};
+            // Blink 1.1 trata ':' de -C como separador de overlays.
+            // Las rutas Windows C:\... por lo tanto ROMPEN el montaje.
+            // CreateProcessW fija cwd=folder, usar una ruta relativa con '/'.
+            const fs::path relative = root.lexically_relative(folder);
+            if(relative.empty() || relative.is_absolute() || relative.wstring().find(L':')!=wstring::npos)
+                throw std::runtime_error("No se pudo construir ruta portable del rootfs.");
+            std::vector<wstring> options={L"-C",relative.generic_wstring(),executable};
             for(int i=5;i<argc;i++)options.emplace_back(argv[i]);
             return launch(engine,options,folder);
         }

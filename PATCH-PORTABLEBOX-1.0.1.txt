@@ -1,0 +1,24 @@
+PARCHE PORTABLEBOX 1.0.1 (solo gestor de Windows)
+
+Error corregido:
+El ejecutable original enviaba una ruta C:\... a la opcion Blink -C.
+En Blink, el caracter ':' separa overlays. El nuevo lanzador utiliza
+la ruta relativa distros/debian-12 o distros/alpine-3.24.
+
+INSTALAR:
+1. Cierra cualquier PortableBox que siga abierto.
+2. Extrae el ZIP del parche.
+3. Copia portablebox.exe a la carpeta portablebox-final, reemplazando el anterior.
+4. NO BORRES blink.exe NI LA CARPETA distros.
+
+PRUEBA:
+  .\portablebox.exe images
+  .\portablebox.exe run debian:12 -- /bin/bash -c "cat /etc/debian_version"
+  .\portablebox.exe run alpine:3.24 -- /bin/sh -c "cat /etc/alpine-release"
+
+PRUEBA SIN PARCHE DIRECTA CON BLINK:
+  .\blink.exe -C "distros/debian-12" /bin/bash -c "cat /etc/debian_version"
+
+IMPORTANTE: se verifico el argumento corregido en Wine y Debian bajo Blink en Linux,
+pero Blink en Windows fisico requiere tu prueba. Si aparece otro error, envia
+la salida completa. NO hay aislamiento Docker ni kernel Linux propio.
