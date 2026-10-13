@@ -101,3 +101,30 @@ En Windows, tras descomprimir todo:
 Dentro de Alpine usa `apk update` y `apk add PAQUETE`, no `apt`. El ZIP de Alpine **no incluye Debian** porque el rootfs Debian contiene rutas incompatibles con nombres NTFS de Windows; renombrarlas dañaría la coherencia de dpkg. Esta limitación queda documentada en `contexto/14-alpine-build-local.md`.
 
 En la compilación Linux de Blink parcheado las pruebas de Alpine `/bin/sh`, resolución DNS y `apk update` funcionan. El resultado del motor APE en Windows físico continúa pendiente de prueba.
+
+## Incidencia Windows: APKINDEX `Bad message`
+
+En la prueba real de Windows, Alpine inicia, pero `apk add bash`, `apk add vim` y `apk add htop` fallan porque `apk update` no puede leer los índices HTTPS del repositorio y muestra `Bad message`. **No se ha establecido aún la causa precisa ni corregido el transporte HTTPS en Blink para Windows.** El error `setsockopt(ICMP6_FILTER)` al hacer ping IPv6 es independiente.
+
+El paquete de prueba local actualizado incluye `bash`, `vim`, `htop` y `curl` preinstalados como utilidad inmediata, pero **no debe confundirse con la reparación de APK**. Los repositorios siguen apuntando a HTTPS por defecto.
+
+Prueba temporal para distinguir si afecta a HTTPS (dentro de Alpine):
+
+```sh
+cp /etc/apk/repositories /etc/apk/repositories.bak
+sed -i 's#https://#http://#g' /etc/apk/repositories
+apk update
+cp /etc/apk/repositories.bak /etc/apk/repositories
+```
+
+HTTP reduce la seguridad del transporte: usarlo solo como prueba puntual; no desactivar la validación de firmas de APK ni dejar los repositorios en HTTP sin una decisión informada.
+
+Para obtener trazas de ambas modalidades en Windows, **con Alpine cerrado**:
+
+```powershell
+.\scripts\diagnostico-apk.ps1 -PortableBoxPath .
+```
+
+El script guarda temporalmente los repositorios originales, compara `apk update` con HTTPS y HTTP, registra las syscalls con `blink.exe -s` y restaura los bytes anteriores incluso si alguna prueba falla. Los logs quedan en `%TEMP%\portablebox-apk-diagnostico\`. Antes de compartirlos, revisar la presencia de datos privados del anfitrión.
+
+El build de distribución se genera en Kaggle con `scripts/empaquetar-alpine.sh`, instalando las herramientas oficiales dentro de la imagen antes de la conversión NTFS. No se suben binarios nuevos a GitHub. Más detalles en `contexto/15-apk-bad-message-windows.md`.
