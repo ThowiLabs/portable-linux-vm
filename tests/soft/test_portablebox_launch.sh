@@ -12,6 +12,11 @@ wine_output=$(WINEDEBUG=-all wine "$dir/portablebox.exe" run debian:12 -- /bin/b
 printf '%s\n' "$wine_output" | grep -F 'ARG2=distros/debian-12' >/dev/null
 printf '%s\n' "$wine_output" | grep -F 'ARG3=/bin/bash' >/dev/null
 printf '%s\n' "$wine_output" | grep -F 'ARG5=cat /etc/debian_version' >/dev/null
+printf '%s\n' "$wine_output" | grep -F 'ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' >/dev/null
+printf '%s\n' "$wine_output" | grep -F 'ENV HOME=/root' >/dev/null
+printf '%s\n' "$wine_output" | grep -F 'ENV LANG=C' >/dev/null
+printf '%s\n' "$wine_output" | grep -F 'ENV LC_ALL=C' >/dev/null
 alpine_output=$(WINEDEBUG=-all wine "$dir/portablebox.exe" run alpine:3.24)
 printf '%s\n' "$alpine_output" | grep -F 'ARG2=distros/alpine-3.24' >/dev/null
-printf 'OK: rutas relativas Blink -C y argumentos Windows de Debian y Alpine\n'
+printf '%s\n' "$alpine_output" | grep -F 'ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' >/dev/null
+printf 'OK: entorno Linux y rutas relativas sin modificar el entorno de Windows\n'

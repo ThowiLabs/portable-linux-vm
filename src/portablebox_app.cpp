@@ -4,6 +4,8 @@
 #endif
 #include <windows.h>
 #include <filesystem>
+#include <algorithm>
+#include <cwchar>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -27,14 +29,52 @@ static fs::path home() {
     if(!size||size==path.size())throw std::runtime_error("No se encuentra la carpeta del programa.");
     return fs::path(wstring(path.data(),size)).parent_path();
 }
-static int launch(const fs::path& tool,const std::vector<wstring>& args,const fs::path& cwd,DWORD max_wait=INFINITE) {
+// Linux tools need Linux PATH, not the inherited Windows PATH (C:\...;...).
+// Build a separate Unicode environment for Blink; leave parent Windows
+// and all existing non-overridden host variables unchanged.
+static std::vector<wchar_t> makeLinuxEnvironment() {
+    LPWCH original=GetEnvironmentStringsW();
+    if(!original)throw std::runtime_error("No se pudo obtener el entorno de Windows.");
+    std::vector<wstring> env;
+    for(const wchar_t* item=original;*item;item+=wcslen(item)+1) {
+        const wstring entry(item);
+        const auto equal=entry.find(L'=',entry[0]==L'='?1:0);
+        if(equal!=wstring::npos) {
+            const wstring key=entry.substr(0,equal);
+            if(CompareStringOrdinal(key.c_str(),-1,L"PATH",-1,TRUE)==CSTR_EQUAL ||
+               CompareStringOrdinal(key.c_str(),-1,L"HOME",-1,TRUE)==CSTR_EQUAL ||
+               CompareStringOrdinal(key.c_str(),-1,L"LANG",-1,TRUE)==CSTR_EQUAL ||
+               CompareStringOrdinal(key.c_str(),-1,L"LC_ALL",-1,TRUE)==CSTR_EQUAL)continue;
+        }
+        env.push_back(entry);
+    }
+    FreeEnvironmentStringsW(original);
+    env.push_back(L"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin");
+    env.push_back(L"HOME=/root");
+    env.push_back(L"LANG=C");
+    env.push_back(L"LC_ALL=C");
+    std::sort(env.begin(),env.end(),[](const wstring& a,const wstring& b){
+        return CompareStringOrdinal(a.c_str(),-1,b.c_str(),-1,TRUE)==CSTR_LESS_THAN;
+    });
+    std::vector<wchar_t> block;
+    for(const auto& entry:env) {
+        block.insert(block.end(),entry.begin(),entry.end());
+        block.push_back(L'\0');
+    }
+    block.push_back(L'\0');
+    return block;
+}
+static int launch(const fs::path& tool,const std::vector<wstring>& args,const fs::path& cwd,DWORD max_wait=INFINITE,bool linuxGuest=false) {
     if(!fs::is_regular_file(tool))throw std::runtime_error("Falta motor blink.exe en el paquete.");
     wstring cmd=quote(tool.wstring());
     for(const auto& a:args)cmd+=L" "+quote(a);
     STARTUPINFOW si{};si.cb=sizeof(si);
     PROCESS_INFORMATION pi{};
     auto directory=cwd.wstring();
-    if(!CreateProcessW(tool.c_str(),cmd.data(),nullptr,nullptr,TRUE,0,nullptr,
+    auto linuxEnvironment=linuxGuest ? makeLinuxEnvironment() : std::vector<wchar_t>{};
+    const DWORD flags=linuxGuest ? CREATE_UNICODE_ENVIRONMENT : 0;
+    void* childEnv=linuxGuest ? linuxEnvironment.data() : nullptr;
+    if(!CreateProcessW(tool.c_str(),cmd.data(),nullptr,nullptr,TRUE,flags,childEnv,
         directory.c_str(),&si,&pi)) {
         auto err=GetLastError();
         throw std::runtime_error("No se pudo iniciar el motor Linux (Windows "+std::to_string(err)+").");
@@ -52,7 +92,7 @@ static int launch(const fs::path& tool,const std::vector<wstring>& args,const fs
     return int(code);
 }
 static void help(){
-    std::wcout << L"PortableBox 1.0.1 - Linux en modo usuario, sin Hyper-V, WSL ni QEMU\n"
+    std::wcout << L"PortableBox 1.0.6 - Linux en modo usuario, sin Hyper-V, WSL ni QEMU\n"
       L"Uso:\n"
       L"  portablebox.exe images\n"
       L"  portablebox.exe doctor\n"
@@ -108,7 +148,7 @@ int wmain(int argc,wchar_t** argv) {
                 throw std::runtime_error("No se pudo construir ruta portable del rootfs.");
             std::vector<wstring> options={L"-C",relative.generic_wstring(),executable};
             for(int i=5;i<argc;i++)options.emplace_back(argv[i]);
-            return launch(engine,options,folder);
+            return launch(engine,options,folder,INFINITE,true);
         }
         throw std::runtime_error("Comando desconocido; usa --help.");
     }catch(const std::exception& e){
