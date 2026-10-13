@@ -10,7 +10,7 @@ out="$repo/dist/PortableBox-Alpine-${version}-Windows-x64.zip"
 work="$repo/build/alpine-pack"
 stage="$work/PortableBox"
 tarball="$work/alpine-minirootfs.tar.gz"
-for tool in curl sha256sum tar zip python3 x86_64-w64-mingw32-g++; do
+for tool in curl sha256sum tar zip unzip python3 x86_64-w64-mingw32-g++; do
   command -v "$tool" >/dev/null || { echo "Falta herramienta: $tool" >&2; exit 1; }
 done
 [[ -f "$blink_src" ]] || { echo "Falta blink.exe; define BLINK_EXE" >&2; exit 1; }
@@ -29,9 +29,8 @@ x86_64-w64-mingw32-g++ -std=c++20 -Os -s -Wall -Wextra -municode \
   -static -static-libgcc -static-libstdc++ "$repo/src/portablebox_app.cpp" -o "$stage/portablebox.exe"
 cp "$blink_src" "$stage/blink.exe"
 cp "$repo/scripts/diagnostico-apt.ps1" "$stage/scripts/diagnostico-apt.ps1"
-if [[ -f "$repo/dist/apt-diagnostico/LICENSE-BLINK.txt" ]]; then
-  cp "$repo/dist/apt-diagnostico/LICENSE-BLINK.txt" "$stage/LICENSE-BLINK.txt"
-fi
+[[ -f "$repo/dist/apt-diagnostico/LICENSE-BLINK.txt" ]] || { echo "Falta LICENSE-BLINK.txt" >&2; exit 1; }
+cp "$repo/dist/apt-diagnostico/LICENSE-BLINK.txt" "$stage/LICENSE-BLINK.txt"
 cat > "$stage/LEEME.txt" <<'LEEME'
 PortableBox para Windows x64 con Alpine Linux 3.24.2 integrado.
 Extraer todo el ZIP y ejecutar desde PowerShell:
