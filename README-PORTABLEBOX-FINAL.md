@@ -78,3 +78,26 @@ Si el DNS de Windows funciona pero falla la resolución de Debian, puedes **opci
 ```
 
 Este modo no modifica la configuración DNS ni los permisos de Windows. APT puede haber dejado índices parciales si se agotó el tiempo de una prueba. **No se garantiza que el cambio DNS resuelva un posible problema de syscalls de red o procesos de Blink**; las trazas permitirán distinguirlos.
+
+## Empaquetar localmente Alpine (sin publicar builds en GitHub)
+
+La entrega de Alpine 3.24.2 se compila y empaqueta **en Kaggle o en una estación de desarrollo Linux**, no en GitHub Actions. El repositorio conserva únicamente el script de empaquetado, código y documentación nuevos.
+
+El script [`scripts/empaquetar-alpine.sh`](scripts/empaquetar-alpine.sh) requiere MinGW-w64, Python 3, curl, tar, zip, unzip y SHA-256. También requiere un `blink.exe` 1.0.9 ya compilado y su licencia ISC, juntos en un directorio local. No reconstruye Blink APE ni descarga ejecutables de orígenes no verificados:
+
+```bash
+BLINK_EXE=/ruta/blink.exe BLINK_LICENSE=/ruta/LICENSE-BLINK.txt bash scripts/empaquetar-alpine.sh
+```
+
+El script descarga y verifica por hash fijo Alpine minirootfs oficial 3.24.2, prepara una copia del rootfs sin enlaces simbólicos, añade una configuración DNS básica, compila `portablebox.exe` y crea un ZIP local `dist/PortableBox-Alpine-3.24.2-Windows-x64.zip`. No ejecuta comandos Git ni publica binarios.
+
+En Windows, tras descomprimir todo:
+
+```powershell
+.\portablebox.exe images
+.\portablebox.exe run alpine
+```
+
+Dentro de Alpine usa `apk update` y `apk add PAQUETE`, no `apt`. El ZIP de Alpine **no incluye Debian** porque el rootfs Debian contiene rutas incompatibles con nombres NTFS de Windows; renombrarlas dañaría la coherencia de dpkg. Esta limitación queda documentada en `contexto/14-alpine-build-local.md`.
+
+En la compilación Linux de Blink parcheado las pruebas de Alpine `/bin/sh`, resolución DNS y `apk update` funcionan. El resultado del motor APE en Windows físico continúa pendiente de prueba.
