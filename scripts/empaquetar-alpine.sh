@@ -11,12 +11,13 @@ out="$repo/dist/PortableBox-Alpine-${version}-Windows-x64.zip"
 work="$repo/build/alpine-pack"
 stage="$work/PortableBox"
 tarball="$work/alpine-minirootfs.tar.gz"
-for tool in curl sha256sum tar zip unzip python3 x86_64-w64-mingw32-g++; do
+for tool in curl sha256sum tar zip unzip python3 chroot x86_64-w64-mingw32-g++; do
   command -v "$tool" >/dev/null || { echo "Falta herramienta: $tool" >&2; exit 1; }
 done
 [[ -f "$blink_src" ]] || { echo "Falta blink.exe; define BLINK_EXE" >&2; exit 1; }
 actual=$(sha256sum "$blink_src" | cut -d' ' -f1)
 [[ "$actual" == "$expected_blink" ]] || { echo 'blink.exe no coincide con el motor verificado 1.0.9' >&2; exit 1; }
+[[ "$(id -u)" == 0 ]] || { echo "El empaquetado con herramientas preinstaladas requiere root en el entorno Linux de build" >&2; exit 1; }
 mkdir -p "$work" "$repo/dist"
 url="https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-${version}-x86_64.tar.gz"
 curl -fL --retry 3 --connect-timeout 15 "$url" -o "$tarball"
@@ -24,16 +25,20 @@ printf '%s  %s\n' "$expected_alpine" "$tarball" | sha256sum --check --status || 
 rm -rf "$stage" "$work/rootfs-original"
 mkdir -p "$stage/distros" "$stage/scripts" "$work/rootfs-original"
 tar -xzf "$tarball" --no-same-owner -C "$work/rootfs-original"
+printf "nameserver 1.1.1.1\nnameserver 1.0.0.1\n" > "$work/rootfs-original/etc/resolv.conf"
+chroot "$work/rootfs-original" /sbin/apk add --no-cache bash vim htop curl
 python3 "$repo/scripts/make_windows_rootfs.py" "$work/rootfs-original" "$stage/distros/alpine-3.24"
 printf 'nameserver 1.1.1.1\nnameserver 1.0.0.1\noptions timeout:2 attempts:2\n' > "$stage/distros/alpine-3.24/etc/resolv.conf"
 x86_64-w64-mingw32-g++ -std=c++20 -Os -s -Wall -Wextra -municode \
   -static -static-libgcc -static-libstdc++ "$repo/src/portablebox_app.cpp" -o "$stage/portablebox.exe"
 cp "$blink_src" "$stage/blink.exe"
 cp "$repo/scripts/diagnostico-apt.ps1" "$stage/scripts/diagnostico-apt.ps1"
+cp "$repo/scripts/diagnostico-apk.ps1" "$stage/scripts/diagnostico-apk.ps1"
 [[ -f "$blink_license" ]] || { echo "Falta LICENSE-BLINK.txt; define BLINK_LICENSE" >&2; exit 1; }
 cp "$blink_license" "$stage/LICENSE-BLINK.txt"
 cat > "$stage/LEEME.txt" <<'LEEME'
 PortableBox para Windows x64 con Alpine Linux 3.24.2 integrado.
+Incluye bash, vim, htop, curl preinstalados desde Alpine.
 Extraer todo el ZIP y ejecutar desde PowerShell:
   .\portablebox.exe images
   .\portablebox.exe run alpine
@@ -41,6 +46,9 @@ Dentro de Alpine:
   apk update
   apk add curl
 Se usa apk, no apt; Debian no esta incluido.
+Si apk update falla con Bad message en Windows, probar: sed -i "s#https://#http://#g" /etc/apk/repositories ; apk update
+Esto usa HTTP solo como diagnostico, no como configuracion recomendada.
+Diagnostico completo desde PowerShell: .\scripts\diagnostico-apk.ps1 -PortableBoxPath .
 No es una VM completa ni un sandbox; no ejecutar codigo Linux no confiable.
 La red/DNS depende de Windows. DNS del invitado: distros/alpine-3.24/etc/resolv.conf.
 LEEME
