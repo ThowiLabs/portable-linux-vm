@@ -35,6 +35,7 @@ El flag `-SyncDns` escribe hasta tres servidores IPv4 configurados por Windows e
 - Se leyó íntegra `contexto/` (13 archivos existentes al inicio).
 - Se descargó y verificó SHA256 de la capa Debian oficial y se inspeccionaron sus archivos de DNS y APT.
 - Se compiló Blink 1.1.0 Linux upstream (OK) y se reprodujo segfault en ese baseline sin parches (resultado NO equivalente a Windows).
+- Se recuperaron los parches 001 a 007 y todos aplicaron sobre Blink 1.1.0. La recompilación nativa Linux pasó tras adaptar el nombre de función `blinkendswith` (introducido en adaptación Cosmopolitan) a `endswith` original en el checkout local de pruebas. `apt-get --version` sigue haciendo segfault en Blink Linux parcheado, antes de generar trazas; la causa aún no está diagnosticada y no equivale a demostrar que el build Cosmopolitan de Windows tenga ese fallo.
 - Parser Tree-sitter PowerShell: script nuevo sin errores de sintaxis.
 - Comprobaciones estáticas de comando `-s -C .`, límites y copia DNS: OK.
 - **Pendiente**: ejecución PowerShell y prueba APT en un Windows real. No se puede afirmar que APT ya funciona.
