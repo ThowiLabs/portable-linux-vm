@@ -50,3 +50,11 @@ Obtener las últimas líneas de `getent.stderr.log` y `apt-update.stderr.log`, v
 1. Ejecutar `./scripts/diagnostico-apt.ps1 -PortableBoxPath 'RUTA_DE_PORTABLEBOX'` desde PowerShell en Windows (si se descargó el script desde GitHub); observar los tres resultados.
 2. Si Windows resuelve DNS pero `getent` no, repetir opcionalmente con `-SyncDns` y comparar.
 3. Si `getent` funciona pero `apt-get update` no, usar la traza de APT para investigar el backend Blink específico sin tocar DNS.
+
+## Entrega empaquetada para prueba Windows (2026-10-13)
+- Release privada: `portablebox-v1.0.9-apt-diagnostico` (https://github.com/ThowiLabs/portable-linux-vm/releases/tag/portablebox-v1.0.9-apt-diagnostico).
+- Activo: `PortableBox-1.0.9-APT-Diagnostico-Windows-x64.zip` (1,288,302 bytes).
+- SHA-256 ZIP: `3cdf67b11bc3f764ff98d719614d98a9230f81f3d417af297337b320d4f1d8ae`, coincide con el digest informado por GitHub.
+- Contiene gestor `portablebox.exe` recompilado con MinGW x86-64 desde `src/portablebox_app.cpp` (1.0.7), `blink.exe` sin cambios desde el ZIP 1.0.9 original (SHA-256 de ZIP original: `fa722b4bbbf77090ade52a2f06272f1c8aead10c2e6f703e4fcd19831302906a`), licencia ISC, script de diagnóstico y LEEME. No contiene `distros/`: extraer sobre una instalación existente y conservar las imágenes.
+- Pruebas: compilación PE32+ x64 correcta; `portablebox.exe --help` bajo Wine64 correcta; suite `tests/soft/test_portablebox_launch.sh` bajo Wine64 con mock Blink: OK (alias, cwd, entorno); ZIP pasó verificación CRC; parser PowerShell: OK.
+- No se incluyeron cambios en el motor Blink; el bloqueo de `apt update` sigue requiriendo traza Windows para corregirse.
