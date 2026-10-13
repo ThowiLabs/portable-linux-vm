@@ -1,0 +1,40 @@
+--- a/blink/hostfs.c
++++ b/blink/hostfs.c
+@@ -27,6 +27,9 @@
+ #include <sys/ioctl.h>
+ #include <sys/mman.h>
+ #include <sys/types.h>
++#ifdef __COSMOPOLITAN__
++#include <libc/dce.h>
++#endif
+ 
+ #include "blink/assert.h"
+ #include "blink/errno.h"
+@@ -600,6 +603,27 @@
+     goto cleananddie;
+   }
+   outputinfo->filefd = openat(hostfd, hostname, flags, mode);
++#ifdef __COSMOPOLITAN__
++  if (outputinfo->filefd == -1 && IsWindows()) {
++    // Some Windows hosts implement openat(dirfd, name) incompletely.
++    // Resolve the host path directly and retry regular Win32-style open.
++    char full[VFS_PATH_MAX];
++    const ssize_t n = HostfsGetHostPath(parent, full);
++    if (n >= 0) {
++      const size_t namelen = strlen(name);
++      if ((size_t)n + namelen + 2 < sizeof(full)) {
++        const size_t at = (size_t)n;
++        full[at] = '/';
++        memcpy(full + at + 1, name, namelen + 1);
++        outputinfo->filefd = open(full, flags, mode);
++        if (outputinfo->filefd != -1)
++          fprintf(stderr, "PortableBox: openat fallback succeeded\n");
++        else
++          fprintf(stderr, "PortableBox: openat fallback errno=%d\n", errno);
++      }
++    }
++  }
++#endif
+   VFS_LOGF("HostfsOpen: openat(%d, \"%s\", %d, %d) -> %d, %s", hostfd, hostname,
+            flags, mode, outputinfo->filefd, strerror(errno));
+   if (outputinfo->filefd == -1) {
