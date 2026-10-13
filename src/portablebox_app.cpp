@@ -92,12 +92,12 @@ static int launch(const fs::path& tool,const std::vector<wstring>& args,const fs
     return int(code);
 }
 static void help(){
-    std::wcout << L"PortableBox 1.0.6 - Linux en modo usuario, sin Hyper-V, WSL ni QEMU\n"
+    std::wcout << L"PortableBox 1.0.7 - Linux en modo usuario, sin Hyper-V, WSL ni QEMU\n"
       L"Uso:\n"
       L"  portablebox.exe images\n"
       L"  portablebox.exe doctor\n"
-      L"  portablebox.exe run debian:12\n"
-      L"  portablebox.exe run alpine:3.24\n"
+      L"  portablebox.exe run debian:12 (o debian)\n"
+      L"  portablebox.exe run alpine:3.24 (o alpine)\n"
       L"  portablebox.exe run debian:12 -- /bin/bash -c \"cat /etc/debian_version\"\n"
       L"\nNo es Docker Engine: sin aislamiento, red y procesos compatibles parcialmente.\n"
       L"No ejecutar programas Linux desconocidos o maliciosos.\n";
@@ -128,8 +128,8 @@ int wmain(int argc,wchar_t** argv) {
             const wstring image=argv[2];
             fs::path root;
             wstring executable;
-            if(image==L"debian:12") {root=folder/L"distros"/L"debian-12";executable=L"/bin/bash";}
-            else if(image==L"alpine:3.24") {root=folder/L"distros"/L"alpine-3.24";executable=L"/bin/sh";}
+            if(image==L"debian:12" || image==L"debian") {root=folder/L"distros"/L"debian-12";executable=L"/bin/bash";}
+            else if(image==L"alpine:3.24" || image==L"alpine") {root=folder/L"distros"/L"alpine-3.24";executable=L"/bin/sh";}
             else throw std::runtime_error("Imagen no incluida. Usa portablebox.exe images.");
             if(!fs::is_directory(root) || !fs::is_regular_file(root/L"etc"/L"os-release"))
                 throw std::runtime_error("Falta el sistema Linux de la imagen. Extrae el ZIP completo.");
@@ -140,15 +140,12 @@ int wmain(int argc,wchar_t** argv) {
                 if(executable.empty() || executable[0]!=L'/')
                     throw std::runtime_error("El ejecutable invitado debe ser ruta Linux absoluta.");
             }
-            // Blink 1.1 trata ':' de -C como separador de overlays.
-            // Las rutas Windows C:\... por lo tanto ROMPEN el montaje.
-            // CreateProcessW fija cwd=folder, usar una ruta relativa con '/'.
-            const fs::path relative = root.lexically_relative(folder);
-            if(relative.empty() || relative.is_absolute() || relative.wstring().find(L':')!=wstring::npos)
-                throw std::runtime_error("No se pudo construir ruta portable del rootfs.");
-            std::vector<wstring> options={L"-C",relative.generic_wstring(),executable};
+            // Iniciar el proceso Blink DENTRO del rootfs: al montar -C .,
+            // VFS obtiene cwd=/ en vez de /SystemRoot/C/Users/... .
+            // Evita rutas absolutas con letra C: en el argumento -C.
+            std::vector<wstring> options={L"-C",L".",executable};
             for(int i=5;i<argc;i++)options.emplace_back(argv[i]);
-            return launch(engine,options,folder,INFINITE,true);
+            return launch(engine,options,root,INFINITE,true);
         }
         throw std::runtime_error("Comando desconocido; usa --help.");
     }catch(const std::exception& e){
