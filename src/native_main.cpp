@@ -12,6 +12,7 @@ static void help() {
         "  nativevm.exe doctor\n"
         "  nativevm.exe smoke\n"
         "  nativevm.exe list\n"
+        "  nativevm.exe validate NOMBRE [--ram 256]\n"
         "  nativevm.exe add NOMBRE --kernel RUTA --initrd RUTA\n"
         "  nativevm.exe run NOMBRE [--ram 256] [--timeout 15]\n"
         "  nativevm.exe inspect distros\\alpine\\vmlinuz\n"
@@ -66,6 +67,26 @@ int wmain(int argc,wchar_t** argv) {
                 std::cerr<<"WHPX no disponible: "<<e.what()<<"\n";return 2;
             }
         }
+        if(args[1]==L"validate") {
+            if(args.size()!=3 && args.size()!=5)throw std::runtime_error("Uso: validate NOMBRE [--ram 256]");
+            size_t ramMiB=256;
+            if(args.size()==5) {
+                if(args[3]!=L"--ram")throw std::runtime_error("Uso: validate NOMBRE [--ram 256]");
+                ramMiB=decimal(args[4],128,1024);
+            }
+            auto dir=profile(args[2]);
+            auto kernel=read_file(dir/L"vmlinuz",256*1024*1024);
+            auto initrd=read_file(dir/L"initramfs",128*1024*1024);
+            auto info=inspect_kernel(kernel);
+            const auto layout=calculate_layout(ramMiB*1024*1024,info,initrd.size(),
+                std::string("console=ttyS0,115200 earlyprintk=serial,ttyS0 panic=5").size());
+            std::cout<<"Perfil verificado (no ejecuta WHPX): "
+                <<"RAM="<<ramMiB<<" MiB, kernel="<<layout.kernel_size
+                <<" bytes, initramfs="<<layout.initrd_size
+                <<" bytes, direccion inicio=0x"<<std::hex<<layout.kernel_addr
+                <<", initramfs=0x"<<layout.initrd_addr<<std::dec<<"\n";
+            return 0;
+        }
         if(args[1]==L"list") {
             const auto dir=home()/L"distros";
             if(!fs::exists(dir)) {std::cout<<"Sin distribuciones registradas.\n";return 0;}
@@ -113,7 +134,7 @@ int wmain(int argc,wchar_t** argv) {
             std::copy(code.begin(),code.end(),hv.memory+0x1000);
             hv.setup_cpu(0x1000,0x8000,0);
             std::string output;
-            int rc=execution_loop(hv,5,output);
+            int rc=execution_loop(hv,5,output,true);
             if(rc==0 && output==std::string(message,sizeof(message)-1))
                 std::cout<<"PRUEBA WHPX COMPLETA: vCPU, RAM, salida UART y HLT validos.\n";
             else {std::cerr<<"Prueba incompleta: salida distinta o error CPU.\n";return 8;}
@@ -149,7 +170,7 @@ int wmain(int argc,wchar_t** argv) {
               <<" bytes, RAM="<<memoryMiB<<" MiB; tiempo limite "<<timeout<<" s\n";
             std::string output;
             int rc=execution_loop(hv,static_cast<int>(timeout),output);
-            if(rc==0)std::cout<<"CPU invitada emitio HLT. Esto no confirma una shell Linux.\n";
+            if(rc==0)std::cout<<"CPU invitada finalizo la prueba. Esto no confirma una shell Linux.\n";
             return rc;
         }
         throw std::runtime_error("Comando desconocido, usa --help");

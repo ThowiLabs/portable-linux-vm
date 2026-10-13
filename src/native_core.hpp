@@ -58,21 +58,36 @@ inline KernelInfo inspect_kernel(const std::vector<uint8_t>& kernel) {
 inline void check_region(uint64_t ram,uint64_t addr,uint64_t size) {
     if(addr>ram || size>ram-addr)throw std::runtime_error("Imagen excede la RAM virtual");
 }
+struct BootLayout {
+    uint64_t kernel_addr=0x100000;
+    uint64_t initrd_addr=0;
+    uint64_t kernel_size=0;
+    uint64_t initrd_size=0;
+};
+inline BootLayout calculate_layout(size_t ram_size,const KernelInfo& info,
+                                    size_t initrd_size,size_t command_size) {
+    constexpr uint64_t params=0x90000,command=0x20000;
+    check_region(ram_size,params,4096);
+    check_region(ram_size,command,command_size+1);
+    check_region(ram_size,0x100000,info.protected_size);
+    if(command_size>2047)throw std::runtime_error("Linea de arranque demasiado larga");
+    BootLayout out{0x100000,0,info.protected_size,initrd_size};
+    if(initrd_size) {
+        out.initrd_addr=((out.kernel_addr+info.protected_size+16*1024*1024ull+4095)/4096)*4096;
+        if(out.initrd_addr+initrd_size>info.initrd_addr_max)
+            throw std::runtime_error("initramfs fuera del maximo del kernel");
+        check_region(ram_size,out.initrd_addr,initrd_size);
+    }
+    return out;
+}
 inline void setup_boot_params(uint8_t* ram,size_t ram_size,
     const std::vector<uint8_t>& kernel,const KernelInfo& info,
     const std::vector<uint8_t>& initramfs,const std::string& cmd) {
     constexpr size_t bp=0x90000, entry=0x100000, line=0x20000, table=0x2d0;
-    check_region(ram_size,bp,4096);
-    check_region(ram_size,entry,info.protected_size);
-    if(cmd.size()>2047)throw std::runtime_error("Linea de arranque demasiado larga");
-    if(cmd.find('\0')!=std::string::npos)throw std::runtime_error("Linea de arranque contiene NUL");
-    uint64_t initrd=0;
-    if(!initramfs.empty()) {
-        // Dejar 16 MiB libres alrededor del kernel y alinear initramfs a 4 KiB.
-        initrd=((uint64_t(entry)+info.protected_size+16*1024*1024+4095)/4096)*4096;
-        if(initrd+initramfs.size()>info.initrd_addr_max)throw std::runtime_error("initramfs fuera del maximo del kernel");
-        check_region(ram_size,initrd,initramfs.size());
-    }
+    if(cmd.find('\0')!=std::string::npos)
+        throw std::runtime_error("Linea de arranque contiene NUL");
+    const auto layout=calculate_layout(ram_size,info,initramfs.size(),cmd.size());
+    const uint64_t initrd=layout.initrd_addr;
     std::memset(ram+bp,0,4096);
     size_t hdr_size=0x202+kernel[0x201];
     if(hdr_size>kernel.size() || hdr_size>4096)

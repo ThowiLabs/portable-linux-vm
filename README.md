@@ -6,6 +6,8 @@ Ahora existe un prototipo nativo **experimental** en C++20/WHPX que no incluye Q
 
 # Portable Linux VM — C++20 para Windows x64
 
+**Nuevo motor experimental sin QEMU:** ver [README-NATIVO.md](README-NATIVO.md). La edición Native 0.2 usa WHPX directamente; actualmente está en etapa de pruebas, sin dispositivos completos.
+
 Gestor de máquinas virtuales portable para USB. Administra múltiples discos QCOW2, arranca instaladores ISO y permite ejecutar distribuciones Linux reales sin instalar WSL ni Docker Desktop. **El monitor de máquinas virtuales de esta versión es QEMU; el gestor, su configuración y sus controles están escritos en C++20.**
 
 ## Preparación de la USB (una vez)

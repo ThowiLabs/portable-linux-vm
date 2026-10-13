@@ -17,6 +17,7 @@
 #include <thread>
 #include <vector>
 #include "native_core.hpp"
+#include "native_uart.hpp"
 
 namespace nativevm {
 inline void require_hr(HRESULT hr,const char* api) {
@@ -132,30 +133,29 @@ struct Hypervisor {
         set_reg(WHvX64RegisterRflags,2); // IF deshabilitado
     }
 };
-inline bool io_port(Hypervisor& vm,const WHV_RUN_VP_EXIT_CONTEXT& e,std::string& console) {
+inline bool io_port(Hypervisor& vm,const WHV_RUN_VP_EXIT_CONTEXT& e,
+                    Serial16550& serial,std::string& console) {
     const auto& io=e.IoPortAccess;
     if(io.AccessInfo.AccessSize!=1 || io.AccessInfo.StringOp || io.AccessInfo.RepPrefix
-        || e.VpContext.InstructionLength==0) return false;
-    const uint16_t port=io.PortNumber;
-    if(port<0x3f8||port>0x3ff)return false;
-    uint8_t value=0;
+        || e.VpContext.InstructionLength==0 || !serial.handles(io.PortNumber)) return false;
     if(io.AccessInfo.IsWrite) {
-        value=static_cast<uint8_t>(io.Rax);
-        if(port==0x3f8) {
-            console+=char(value);
-            std::cout.put(char(value)).flush();
+        const size_t old=serial.transmitted.size();
+        serial.write(io.PortNumber,static_cast<uint8_t>(io.Rax));
+        if(serial.transmitted.size()>old) {
+            const char ch=serial.transmitted.back();
+            if(console.size()<1024*1024)console.push_back(ch);
+            std::cout.put(ch).flush();
         }
     } else {
-        if(port==0x3fd)value=0x60; // THR vacio / transmisor vacio
-        else if(port==0x3fa)value=0x01; // sin interrupciones pendientes
-        else if(port==0x3fe)value=0xb0;
-        auto rax=vm.get_reg(WHvX64RegisterRax);
+        const uint8_t value=serial.read(io.PortNumber);
+        const auto rax=vm.get_reg(WHvX64RegisterRax);
         vm.set_reg(WHvX64RegisterRax,(rax&~0xffull)|value);
     }
     vm.set_reg(WHvX64RegisterRip,e.VpContext.Rip+e.VpContext.InstructionLength);
     return true;
 }
-inline int execution_loop(Hypervisor& vm,int timeout_seconds,std::string& output) {
+inline int execution_loop(Hypervisor& vm,int timeout_seconds,std::string& output,bool halt_is_success=false) {
+    Serial16550 serial;
     std::atomic<bool> stopped{false};
     std::atomic<bool> expired{false};
     std::jthread watchdog([&]{
@@ -179,10 +179,12 @@ inline int execution_loop(Hypervisor& vm,int timeout_seconds,std::string& output
             }
             require_hr(result,"WHvRunVirtualProcessor");
             if(e.ExitReason==WHvRunVpExitReasonX64Halt) {
-                std::cout<<"\nInvitado detenido por HLT.\n";
-                stopped=true;return 0;
+                if(halt_is_success)std::cout<<"\nPrueba x86 detenida por HLT.\n";
+                else std::cerr<<"\nInvitado hizo HLT: falta implementar interrupciones y temporizador virtual.\n";
+                stopped=true;
+                return halt_is_success?0:9;
             }
-            if(e.ExitReason==WHvRunVpExitReasonX64IoPortAccess && io_port(vm,e,output))continue;
+            if(e.ExitReason==WHvRunVpExitReasonX64IoPortAccess && io_port(vm,e,serial,output))continue;
             if(e.ExitReason==WHvRunVpExitReasonCanceled && expired.load()) {
                 std::cerr<<"\nTiempo agotado: CPU cancelada por watchdog.\n";
                 stopped=true;return 124;
