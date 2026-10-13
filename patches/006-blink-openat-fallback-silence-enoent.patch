@@ -1,0 +1,15 @@
+--- a/blink/hostfs.c
++++ b/blink/hostfs.c
+@@ -616,10 +616,8 @@
+         full[at] = '/';
+         memcpy(full + at + 1, name, namelen + 1);
+         outputinfo->filefd = open(full, flags, mode);
+-        if (outputinfo->filefd != -1)
+-          fprintf(stderr, "PortableBox: openat fallback succeeded\n");
+-        else
+-          fprintf(stderr, "PortableBox: openat fallback errno=%d\n", errno);
++        // A missing file is normal for the runtime/loader's path search.
++        // Do not print ENOENT on every ordinary lookup.
+       }
+     }
+   }
