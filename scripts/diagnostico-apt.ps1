@@ -30,7 +30,12 @@ if ($SyncDns) {
     Write-Host "Copia del archivo anterior (si existia): $backup"
 }
 Write-Host '=== DNS y TCP del anfitrion ==='
-$ips = @([Net.Dns]::GetHostAddresses('deb.debian.org') | Where-Object AddressFamily -eq InterNetwork)
+try {
+    $ips = @([Net.Dns]::GetHostAddresses('deb.debian.org') | Where-Object AddressFamily -eq InterNetwork)
+} catch {
+    Write-Warning ('DNS de Windows: ' + $_.Exception.Message)
+    $ips = @()
+}
 Write-Host ('DNS de Windows: ' + ($ips -join ', '))
 if ($ips.Count -gt 0) {
     $tcp = New-Object Net.Sockets.TcpClient
@@ -40,6 +45,8 @@ if ($ips.Count -gt 0) {
             $tcp.EndConnect($pending)
             Write-Host 'TCP puerto 80: conectado'
         } else { Write-Warning 'TCP puerto 80: timeout' }
+    } catch {
+        Write-Warning ('TCP de Windows: ' + $_.Exception.Message)
     } finally { $tcp.Close() }
 }
 $logs = Join-Path $env:TEMP 'portablebox-apt-diagnostico'
