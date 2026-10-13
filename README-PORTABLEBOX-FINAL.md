@@ -57,3 +57,24 @@ Alpine minirootfs oficial 3.24.2, SHA256 verificado.
 ## Pendientes
 
 Validación en Windows real, interoperabilidad de señales/procesos, acceso controlado a carpetas Windows, importación dinámica de más imágenes OCI y autenticación, y pruebas de aplicaciones no triviales. Para Docker completo y aislamiento real hará falta soporte de kernel o tecnologías equivalentes.
+
+
+## Diagnóstico de `apt update` cuando queda sin salida
+
+La edición con `blink.exe` 1.0.9 corrigió cambios de UID/GID de APT, pero aún no se ha validado su operación de red y procesos en Windows real. Si `apt update` no imprime nada, no reemplaces el ejecutable ni presupongas fallo de DNS: primero usa [`scripts/diagnostico-apt.ps1`](scripts/diagnostico-apt.ps1), descargado desde este repositorio.
+
+Desde PowerShell, indicando la ruta donde están `portablebox.exe`, `blink.exe` y `distros/`:
+
+```powershell
+.\scripts\diagnostico-apt.ps1 -PortableBoxPath "C:\ruta\portablebox-final"
+```
+
+El script compara DNS/TCP del anfitrión Windows con `getent` y APT dentro de Debian, activa `blink -s` para obtener syscalls y limita la duración de cada prueba. Escribe registros en `%TEMP%\portablebox-apt-diagnostico\`. Debes revisar esos registros antes de compartirlos, porque pueden contener rutas del equipo.
+
+Si el DNS de Windows funciona pero falla la resolución de Debian, puedes **opcionalmente** sincronizar los DNS IPv4 del anfitrión al archivo `distros/debian-12/etc/resolv.conf`, guardando el anterior como `resolv.conf.portablebox.bak`:
+
+```powershell
+.\scripts\diagnostico-apt.ps1 -PortableBoxPath "C:\ruta\portablebox-final" -SyncDns
+```
+
+Este modo no modifica la configuración DNS ni los permisos de Windows. APT puede haber dejado índices parciales si se agotó el tiempo de una prueba. **No se garantiza que el cambio DNS resuelva un posible problema de syscalls de red o procesos de Blink**; las trazas permitirán distinguirlos.
