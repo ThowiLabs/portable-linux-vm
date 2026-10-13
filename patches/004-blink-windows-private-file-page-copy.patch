@@ -1,0 +1,78 @@
+--- a/blink/memorymalloc.c
++++ b/blink/memorymalloc.c
+@@ -20,6 +20,9 @@
+ #include <string.h>
+ #include <sys/mman.h>
+ #include <unistd.h>
++#ifdef __COSMOPOLITAN__
++#include <libc/dce.h>
++#endif
+ 
+ #include "blink/assert.h"
+ #include "blink/atomic.h"
+@@ -42,6 +45,7 @@
+ #include "blink/types.h"
+ #include "blink/util.h"
+ #include "blink/x86.h"
++#include "blink/vfs.h"
+ 
+ struct Allocator {
+   pthread_mutex_t_ lock;
+@@ -965,14 +969,49 @@
+             }
+             mugflags = (shared ? MAP_SHARED : MAP_PRIVATE) |
+                        (fd == -1 ? MAP_ANONYMOUS_ : 0);
+-            mug = AllocateBig(mugsize, sysprot, mugflags, fd, mugoff);
+-            if (!mug) {
+-              ERRF("mmap(virt=%" PRIx64
+-                   ", size=%ld, flags=%#x, fd=%d, offset=%#" PRIx64
+-                   ") crisis: %s",
+-                   virt, mugsize, mugflags, fd, (u64)mugoff,
+-                   DescribeHostErrno(errno));
+-              PanicDueToMmap();
++#ifdef __COSMOPOLITAN__
++            if (fd != -1 && IsWindows() && !shared) {
++              // Win32 file mapping granularity (often 64 KiB) is not
++              // compatible with individual Linux 4 KiB ELF file pages.
++              // Copy private file-backed pages into anonymous host memory.
++              // Guest page permissions are still enforced in the PTEs.
++              long copylen = MIN(4096, end - virt);
++              mugsize = copylen;
++              mugoff = 0;
++              mugskew = 0;
++              mugflags = MAP_PRIVATE | MAP_ANONYMOUS_;
++              mug = AllocateBig(mugsize, PROT_READ | PROT_WRITE,
++                                mugflags, -1, 0);
++              if (!mug) {
++                fprintf(stderr, "PortableBox: anonymous page allocation failed "
++                        "virt=%" PRIx64 " error=%d\n", virt, errno);
++                PanicDueToMmap();
++              }
++              size_t readlen = 0;
++              while (readlen < (size_t)copylen) {
++                ssize_t n = VfsPread(fd, (u8 *)mug + readlen,
++                                     copylen - readlen, offset + readlen);
++                if (n < 0) {
++                  fprintf(stderr, "PortableBox: page pread failed "
++                          "virt=%" PRIx64 " offset=%" PRIx64 " errno=%d\n",
++                          virt, offset + readlen, errno);
++                  PanicDueToMmap();
++                }
++                if (n == 0) break;
++                readlen += n;
++              }
++              if (readlen < (size_t)copylen)
++                memset((u8 *)mug + readlen, 0, copylen - readlen);
++            } else
++#endif
++            {
++              mug = AllocateBig(mugsize, sysprot, mugflags, fd, mugoff);
++              if (!mug) {
++                fprintf(stderr, "PortableBox: host mmap failed virt=%" PRIx64
++                        " bytes=%ld fileoffset=%" PRIx64 " errno=%d linear=%d\n",
++                        virt, mugsize, (u64)mugoff, errno, HasLinearMapping());
++                PanicDueToMmap();
++              }
+             }
+             real = (uintptr_t)mug + mugskew;
+             offset += 4096;
